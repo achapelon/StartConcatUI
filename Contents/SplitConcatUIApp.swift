@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct SplitUIApp: App {
+struct SplitConcatUIApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
