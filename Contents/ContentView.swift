@@ -9,7 +9,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @State private var fileURL: URL?
+    @Binding var fileURL: URL?
     
     var body: some View {
         if let url = fileURL {
@@ -27,5 +27,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(fileURL: .constant(nil))
 }
