@@ -7,25 +7,30 @@
 
 import SwiftUI
 
+class FileOpener: ObservableObject {
+    @Published var url: URL? = nil
+}
+
 @main
 struct SplitConcatUIApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var fileURL: URL? = nil
+    @StateObject var fileOpener = FileOpener()
     
     var body: some Scene {
         WindowGroup {
-            ContentView(fileURL: $fileURL)
+            ContentView()
+                .environmentObject(fileOpener)
                 .onAppear {
-                    fileURL = appDelegate.url
+                    appDelegate.fileOpener = fileOpener
                 }
         }
         .defaultSize(width: 500, height: 375)
     }
 }
 class AppDelegate: NSObject, NSApplicationDelegate {
-    var url: URL?
+    weak var fileOpener: FileOpener?
     
     func application(_ application: NSApplication, open urls: [URL]) {
-        url = urls.first
+        fileOpener?.url = urls.first
     }
 }

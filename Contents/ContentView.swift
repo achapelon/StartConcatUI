@@ -9,23 +9,29 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @Binding var fileURL: URL?
+    @EnvironmentObject var fileOpener: FileOpener
+    @State var fileURL: URL?
     
     var body: some View {
-        if let url = fileURL {
-            let ext = url.pathExtension
-            if ext == "split" {
-                ConcatView(fileURL: $fileURL)
+        Group {
+            if let url = fileURL {
+                let ext = url.pathExtension
+                if ext == "split" {
+                    ConcatView(fileURL: $fileURL)
+                } else {
+                    SplitView(fileURL: $fileURL)
+                }
             } else {
-                SplitView(fileURL: $fileURL)
+                Dropzone(text: "Drag and drop a file here", fileURL: $fileURL)
             }
-        } else {
-            Dropzone(text: "Drag and drop a file here", fileURL: $fileURL)
         }
-
+        .onChange(of: fileOpener.url) {
+            if fileURL != nil { return }
+            fileURL = fileOpener.url
+        }
     }
 }
 
 #Preview {
-    ContentView(fileURL: .constant(nil))
+    ContentView()
 }
