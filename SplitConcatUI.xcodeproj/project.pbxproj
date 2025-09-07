@@ -10,9 +10,22 @@
 		1B6478282E4F83BB00371B21 /* SplitConcatUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SplitConcatUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1B9435DE2E6DFA1500D6D08B /* Exceptions for "Contents" folder in "SplitConcatUI" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1B6478272E4F83BB00371B21 /* SplitConcatUI */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1B64782A2E4F83BB00371B21 /* Contents */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1B9435DE2E6DFA1500D6D08B /* Exceptions for "Contents" folder in "SplitConcatUI" target */,
+			);
 			path = Contents;
 			sourceTree = "<group>";
 		};
