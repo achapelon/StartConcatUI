@@ -29,6 +29,14 @@ struct ContentView: View {
             if fileURL != nil { return }
             fileURL = fileOpener.url
         }
+        .onChange(of: fileURL) {
+            // Mise à jour dynamique du titre de la fenêtre
+            if let url = fileURL {
+                NSApp.mainWindow?.title = url.lastPathComponent  // Nom du fichier (ex: "monfichier.txt")
+            } else {
+                NSApp.mainWindow?.title = "SplitConcatUI"  // Titre par défaut si aucun fichier
+            }
+        }
     }
 }
 
