@@ -51,19 +51,36 @@ extension FileManager {
             .map { (path as NSString).appendingPathComponent($0) } ?? []
     }
     
-    static func removeItems(atPath path: String, matching name: String? = nil) {
-        let files = contentsOfDirectory(atPath: path, matching: name)
+    static func splitPartPaths(atPath path: String, templateFilename: String) -> [String] {
+        let files = try? FileManager.default.contentsOfDirectory(atPath: path)
+        return files?.filter { isSplitPartFilename($0, templateFilename: templateFilename) }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .map { (path as NSString).appendingPathComponent($0) } ?? []
+    }
+    
+    static func removeSplitParts(atPath path: String, templateFilename: String) {
+        let files = splitPartPaths(atPath: path, templateFilename: templateFilename)
         for file in files {
             try? FileManager.default.removeItem(atPath: file)
         }
     }
     
-    static func appendingPathExtensionToItems(extension ext: String, atPath path: String, matching name: String? = nil) {
-        let files = contentsOfDirectory(atPath: path, matching: name)
+    static func appendPathExtensionToSplitParts(_ ext: String, atPath path: String, templateFilename: String) {
+        let files = splitPartPaths(atPath: path, templateFilename: templateFilename)
         for file in files {
-            let newPath = (file as NSString).appendingPathExtension(ext) ?? ""
+            guard let newPath = (file as NSString).appendingPathExtension(ext) else { continue }
             try? FileManager.default.moveItem(atPath: file, toPath: newPath)
         }
+    }
+    
+    private static func isSplitPartFilename(_ filename: String, templateFilename: String) -> Bool {
+        guard filename.hasPrefix(templateFilename) else { return false }
+        var suffix = String(filename.dropFirst(templateFilename.count))
+        if suffix.hasPrefix(".part") && suffix.hasSuffix(".split")  {
+            suffix.removeFirst(".part".count)
+            suffix.removeLast(".split".count)
+        }
+        return !suffix.isEmpty && suffix.allSatisfy { $0.isNumber }
     }
     
     static func escapePath(_ path: String) -> String {

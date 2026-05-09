@@ -63,8 +63,8 @@ struct SplitView: View {
                     progress.terminateProcess()
                 } else {
                     guard let destFolder = destFolder else { return }
-                    let files = FileManager.contentsOfDirectory(atPath: destFolder.path, matching: templateFilename)
-                    if (files.count > 0) {
+                    let files = FileManager.splitPartPaths(atPath: destFolder.path, templateFilename: templateFilename)
+                    if !files.isEmpty {
                         showConfirmation = true
                         return
                     }
@@ -74,7 +74,7 @@ struct SplitView: View {
             .confirmationDialog("Overwrite existing files?", isPresented: $showConfirmation) {
                 Button("Overwrite", role: .destructive) {
                     guard let destFolder = destFolder else { return }
-                    FileManager.removeItems(atPath: destFolder.path, matching: templateFilename)
+                    FileManager.removeSplitParts(atPath: destFolder.path, templateFilename: templateFilename)
                     startSplit()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -84,10 +84,11 @@ struct SplitView: View {
                 Button("OK") {
                     // Rename files with extension on Finish
                     // Remove temporary files on Cancel
-                    if (progress.isFinished) {
-                        FileManager.appendingPathExtensionToItems(extension: "split", atPath: destFolder!.path, matching: templateFilename)
+                    guard let destFolder = destFolder else { return }
+                    if progress.isFinished {
+                        FileManager.appendPathExtensionToSplitParts("split", atPath: destFolder.path, templateFilename: templateFilename)
                     } else {
-                        FileManager.removeItems(atPath: destFolder!.path, matching: templateFilename)
+                        FileManager.removeSplitParts(atPath: destFolder.path, templateFilename: templateFilename)
                     }
                 }
             } message: {

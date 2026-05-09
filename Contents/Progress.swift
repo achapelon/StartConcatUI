@@ -34,8 +34,11 @@ class Progress: ObservableObject {
     var outputURL: URL?
     
     var isRunning: Bool { process != nil }
-    var isFinished: Bool { get { value == 1 } set { newValue ? DispatchQueue.main.async { [self] in (currentByteCount = totalByteCount) } : () } }
-    var value: Double { Double(currentByteCount) / Double(totalByteCount) }
+    var isFinished: Bool { get { totalByteCount > 0 && currentByteCount >= totalByteCount } set { newValue ? DispatchQueue.main.async { [self] in (currentByteCount = totalByteCount) } : () } }
+    var value: Double {
+        guard totalByteCount > 0 else { return 0 }
+        return min(Double(currentByteCount) / Double(totalByteCount), 1)
+    }
     var message: String {
         get {
             var message = "0%"
@@ -169,23 +172,22 @@ class Progress: ObservableObject {
     func update() {
         guard let process = process else { return }
         guard let exec = process.executableURL?.lastPathComponent else { return }
+        guard let outputURL = outputURL else { return }
         switch exec {
         case "split":
-            let templateFilename = outputURL?.lastPathComponent
-            let destFolder: URL = outputURL!.deletingLastPathComponent()
-            let files = FileManager.contentsOfDirectory(atPath: destFolder.path, matching: templateFilename)
+            let templateFilename = outputURL.lastPathComponent
+            let destFolder = outputURL.deletingLastPathComponent()
+            let files = FileManager.splitPartPaths(atPath: destFolder.path, templateFilename: templateFilename)
             
             var size: UInt64 = 0
             files.forEach { size += FileManager.filesize(forPath: $0) }
             
             DispatchQueue.main.async { self.currentByteCount = size }
-            break;
         case "cat":
-            let size: UInt64 = FileManager.filesize(forPath: outputURL!.path)
+            let size: UInt64 = FileManager.filesize(forPath: outputURL.path)
             DispatchQueue.main.async { self.currentByteCount = size }
-            break;
         default:
-            break;
+            break
         }
     }
 }

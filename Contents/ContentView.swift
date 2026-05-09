@@ -26,7 +26,6 @@ struct ContentView: View {
             }
         }
         .onChange(of: fileOpener.url) {
-            if fileURL != nil { return }
             fileURL = fileOpener.url
         }
         .onChange(of: fileURL) {

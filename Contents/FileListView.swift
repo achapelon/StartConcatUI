@@ -22,7 +22,7 @@ struct FileListView: View {
                 }
                 .padding(.vertical, 2)
             }
-            .listStyle(PlainListStyle())
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(
                 Color(white: 0.95)

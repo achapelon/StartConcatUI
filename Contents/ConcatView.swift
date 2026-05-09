@@ -137,8 +137,8 @@ struct ConcatView: View {
         destFilename = url.lastPathComponent
         destFolder = url.deletingLastPathComponent()
         
-        var files = FileManager.contentsOfDirectory(atPath: destFolder!.path, matching: destFilename)
-        files = files.filter { ($0 as NSString).lastPathComponent != destFilename }
+        guard let destFolder = destFolder else { return }
+        let files = FileManager.splitPartPaths(atPath: destFolder.path, templateFilename: destFilename)
         self.files = files.map { URL(filePath: $0) }
         destFilesize = 0
         files.forEach { file in
