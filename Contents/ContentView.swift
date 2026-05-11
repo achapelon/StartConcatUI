@@ -9,8 +9,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @EnvironmentObject var fileOpener: FileOpener
+    //@EnvironmentObject var fileOpener: FileOpener
     @State var fileURL: URL?
+    
+    init(fileURL: URL? = nil) {
+        _fileURL = State(initialValue: fileURL)
+    }
     
     var body: some View {
         Group {
@@ -25,9 +29,9 @@ struct ContentView: View {
                 Dropzone(text: "Drag and drop a file here", fileURL: $fileURL)
             }
         }
-        .onChange(of: fileOpener.url) {
+        /*.onChange(of: fileOpener.url) {
             fileURL = fileOpener.url
-        }
+        }*/
         .onChange(of: fileURL) {
             // Mise à jour dynamique du titre de la fenêtre
             if let url = fileURL {
