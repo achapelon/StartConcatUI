@@ -13,7 +13,8 @@ struct SplitConcatUIApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainView()
+                .environmentObject(SplitConcatModel())
         }
         .defaultSize(width: 500, height: 375)
         .handlesExternalEvents(matching: []) // ✅ WindowGroup n'intercepte plus rien
@@ -41,7 +42,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     private func openWindow(for url: URL) {
-        let rootView = ContentView(fileURL: url)
+        let rootView = MainView()
+            .environmentObject(SplitConcatModel(sourceURL: url))
         let window = NSWindow(contentViewController: NSHostingController(rootView: rootView))
         window.title = url.lastPathComponent
         window.setContentSize(NSSize(width: 500, height: 375))

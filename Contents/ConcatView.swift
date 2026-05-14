@@ -9,107 +9,133 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ConcatView: View {
-    @StateObject private var progress: Progress = Progress()
-    @Binding var fileURL: URL?
-    
-    @State private var destFolder: URL?
-    @State private var destFilename: String = ""
-    @State private var destFilesize: UInt64 = 0
-    @State private var files: [URL] = []
+    @EnvironmentObject private var model: SplitConcatModel
+
+    @StateObject private var progress: SplitConcatProgress = SplitConcatProgress()
     @State private var showTermination: Bool = false
     @State private var showConfirmation: Bool = false
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            FileField(url: $fileURL)
-                .onAppear {
-                    parseSourceUrl(at: fileURL)
-                }
-                .onChange(of: fileURL) {
-                    parseSourceUrl(at: fileURL)
-                }
-            FilesizeCatField(filesize: $destFilesize)
-            FileField(label: "Folder destination", url: $destFolder)
-                .onChange(of: destFolder) {
-                    if let url = fileURL, destFolder == nil {
-                        destFolder = url.deletingLastPathComponent()
-                        return
-                    }
-                    if let url = destFolder, !url.hasDirectoryPath {
-                        destFolder = url.deletingLastPathComponent()
-                    }
-                }
-
-            Text("Destination file: \(destFilename)")
-            FileListView(files: $files)
+        VStack {
+            parameters
+                .padding(.bottom, 16)
+            
             Spacer()
-            if progress.isRunning {
-                ProgressView(value: progress.value)
-                    .progressViewStyle(LinearProgressViewStyle())
-                    .disabled(progress.value == 0.0)
-                Text(progress.message)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .padding(.top, -10)
-            }
-            Button(progress.isRunning ? "Cancel" : "Concatenate") {
-                if progress.isRunning {
-                    progress.terminateProcess()
-                } else {
-                    guard let destFolder = destFolder else { return }
-                    let file = destFolder.appending(path: destFilename)
-                    if (FileManager.default.fileExists(atPath: file.path)) {
-                        showConfirmation = true
-                        return
-                    }
-                    startConcat()
-                }
-            }
-            .confirmationDialog("Overwrite existing files?", isPresented: $showConfirmation) {
-                Button("Overwrite", role: .destructive) {
-                    removeDestinationFile()
-                    startConcat()
-                }
-                .keyboardShortcut(.defaultAction)
-                Button("Cancel", role: .cancel) { }
-            }
-            .alert(progress.isFinished ? "Finished" : "Canceled", isPresented: $showTermination) {
-                Button("OK") {
-                    // Remove temporary file on Cancel
-                    if (!progress.isFinished) {
-                        removeDestinationFile()
-                    }
-                }
-            } message: {
-                Text(progress.isFinished ? "The file has been concatenated successfully." : "The concatenation has been canceled.")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(fileURL == nil || destFilename.isEmpty || destFolder == nil)
-            .padding(.top, 10)
-
+            
+            SplitConcatProgressView(progress: progress)
+            
+            startCancelButton
         }
         .padding()
     }
-    
-    func removeDestinationFile() {
-        guard let destFolder = destFolder else { return }
-        let file = destFolder.appending(path: destFilename)
-        try? FileManager.default.removeItem(at: file)
+
+    private func startCancelAction() {
+        if progress.isRunning {
+            progress.terminateProcess()
+        } else {
+            guard let configuration = model.concatConfiguration else { return }
+            if FileManager.default.fileExists(atPath: configuration.destinationURL.path) {
+                showConfirmation = true
+                return
+            }
+            startConcat()
+        }
     }
     
+    private var overwriteConfirmation: some View {
+        HStack {
+            Button("Overwrite", role: .destructive) {
+                removeDestinationFile()
+                startConcat()
+            }
+            Button("Cancel", role: .cancel) { }
+                .keyboardShortcut(.defaultAction)
+        }
+    }
+    
+    private var finishedAlert: some View {
+        Button("OK") {
+            // Remove temporary file on Cancel.
+            if !progress.isFinished {
+                removeDestinationFile()
+            }
+        }
+    }
+    private var startCancelButton: some View {
+        Button(action: startCancelAction) {
+            Text(progress.isRunning ? "Cancel" : "Concatenate")
+                .frame(width: 100)
+        }
+        .confirmationDialog("Overwrite existing file?", isPresented: $showConfirmation) {
+            overwriteConfirmation
+        }
+        .alert(progress.isFinished ? "Finished" : "Canceled", isPresented: $showTermination) {
+            finishedAlert
+        } message: {
+            Text(progress.isFinished ? "The file has been concatenated successfully." : "The concatenation has been canceled.")
+        }
+        .controlSize(.extraLarge)
+        .buttonStyle(.borderedProminent)
+        .disabled(model.concatConfiguration == nil)
+    }
+    
+    private var parameters: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let configuration = model.concatConfiguration {
+                FileListView(files: partURLsBinding)
+                FilesizeCatField(filesize: configuration.destinationFileSize)
+                FileField(label: "Folder destination", url: destinationFolderBinding)
+                Text("Destination file: \(configuration.destinationFilename)")
+            }
+        }
+    }
+    
+    private var destinationFolderBinding: Binding<URL?> {
+        Binding {
+            model.concatConfiguration?.destinationFolder
+        } set: { newValue in
+            guard let newValue else { return }
+            updateConcatConfiguration { configuration in
+                configuration.destinationFolder = newValue.hasDirectoryPath ? newValue : newValue.deletingLastPathComponent()
+            }
+        }
+    }
+
+    private var partURLsBinding: Binding<[URL]> {
+        Binding {
+            model.concatConfiguration?.partURLs ?? []
+        } set: { newValue in
+            updateConcatConfiguration { configuration in
+                configuration.partURLs = newValue
+                configuration.destinationFileSize = newValue.reduce(0) { partialResult, url in
+                    partialResult + FileManager.filesize(for: url)
+                }
+            }
+        }
+    }
+
+    private func updateConcatConfiguration(_ update: (inout ConcatConfiguration) -> Void) {
+        guard var configuration = model.concatConfiguration else { return }
+        update(&configuration)
+        model.concatConfiguration = configuration
+    }
+
+    func removeDestinationFile() {
+        guard let configuration = model.concatConfiguration else { return }
+        try? FileManager.default.removeItem(at: configuration.destinationURL)
+    }
+
     func cancel() {
         progress.terminateProcess()
         showTermination = true
     }
-    
+
     func startConcat() {
-        guard let destFolder = destFolder else { return }
-            
-        let destination = destFolder.appendingPathComponent(destFilename)
-        
-        progress.setProcessConcat(sources: files, destination: destination)
+        guard let configuration = model.concatConfiguration else { return }
+
+        progress.setProcessConcat(sources: configuration.partURLs, destination: configuration.destinationURL)
         progress.runProcess()
-        
+
         guard let process = progress.process else { return }
         DispatchQueue.global(qos: .background).async {
             while process.isRunning {
@@ -126,37 +152,17 @@ struct ConcatView: View {
             }
         }
     }
-    
-    func parseSourceUrl(at url: URL?) {
-        guard var url = url else { return }
-        let ext = url.pathExtension
-        if ext == "split" {
-            url = url.deletingPathExtension()
-        }
-        url = url.deletingPathExtension()
-        destFilename = url.lastPathComponent
-        destFolder = url.deletingLastPathComponent()
-        
-        guard let destFolder = destFolder else { return }
-        let files = FileManager.splitPartPaths(atPath: destFolder.path, templateFilename: destFilename)
-        self.files = files.map { URL(filePath: $0) }
-        destFilesize = 0
-        files.forEach { file in
-            destFilesize += FileManager.filesize(forPath: file)
-        }
-    }
 }
 
 struct FilesizeCatField: View {
-    @Binding var filesize: UInt64
+    let filesize: UInt64
+
     var body: some View {
         Text("File size: \(FilesizeFormatter.string(fromByteCount: filesize))")
     }
 }
 
-
-
 #Preview {
-    @Previewable @State var fileURL: URL? = URL(fileURLWithPath: "/Users/achapelon/Downloads/Cyberpunk.2077.v2.3.dmg.0.part0.split")
-    ConcatView(fileURL: $fileURL)
+    ConcatView()
+        .environmentObject(SplitConcatModel(sourceURL: URL(fileURLWithPath: "/Users/achapelon/Desktop/1684331401931.jpeg.part0.split")))
 }

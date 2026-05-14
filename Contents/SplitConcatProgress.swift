@@ -5,9 +5,10 @@
 //  Created by Anthony Chapelon on 29/08/2025.
 //
 
+import SwiftUI
 import Foundation
 
-class Progress: ObservableObject {
+class SplitConcatProgress: ObservableObject {
     struct ElapsedTime {
         var startTime: Date = Date()
 
@@ -52,6 +53,7 @@ class Progress: ObservableObject {
             return message
         }
     }
+    
     func set(toByteCount totalByteCount: UInt64) {
         DispatchQueue.main.async {
             self.totalByteCount = totalByteCount
@@ -177,7 +179,7 @@ class Progress: ObservableObject {
         case "split":
             let templateFilename = outputURL.lastPathComponent
             let destFolder = outputURL.deletingLastPathComponent()
-            let files = FileManager.splitPartPaths(atPath: destFolder.path, templateFilename: templateFilename)
+            let files = FileManager.splitParts(atPath: destFolder.path, templateFilename: templateFilename)
             
             var size: UInt64 = 0
             files.forEach { size += FileManager.filesize(forPath: $0) }
@@ -190,4 +192,26 @@ class Progress: ObservableObject {
             break
         }
     }
+}
+
+struct SplitConcatProgressView: View {
+    @StateObject var progress: SplitConcatProgress
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if progress.isRunning {
+                ProgressView(value: progress.value)
+                    .progressViewStyle(LinearProgressViewStyle())
+                    .disabled(progress.value == 0.0)
+                Text(progress.message)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+#Preview {
+    SplitConcatProgressView(progress: SplitConcatProgress())
+        .padding(10)
 }

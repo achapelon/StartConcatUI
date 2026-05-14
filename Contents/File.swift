@@ -39,6 +39,16 @@ extension FileManager {
         return filesize(for: URL(fileURLWithPath: path))
     }
 
+    static func isDirectory(_ url: URL) -> Bool {
+        if let values = try? url.resourceValues(forKeys: [.isDirectoryKey]),
+           let isDirectory = values.isDirectory {
+            return isDirectory
+        }
+
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
     static func contentsOfDirectory(at url: URL, includingPropertiesForKeys keys: [URLResourceKey]? = nil , options mask: FileManager.DirectoryEnumerationOptions = []) -> [URL] {
         let fileUrls = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: mask)
         return fileUrls ?? []
@@ -51,7 +61,7 @@ extension FileManager {
             .map { (path as NSString).appendingPathComponent($0) } ?? []
     }
     
-    static func splitPartPaths(atPath path: String, templateFilename: String) -> [String] {
+    static func splitParts(atPath path: String, templateFilename: String) -> [String] {
         let files = try? FileManager.default.contentsOfDirectory(atPath: path)
         return files?.filter { isSplitPartFilename($0, templateFilename: templateFilename) }
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
@@ -59,14 +69,14 @@ extension FileManager {
     }
     
     static func removeSplitParts(atPath path: String, templateFilename: String) {
-        let files = splitPartPaths(atPath: path, templateFilename: templateFilename)
+        let files = splitParts(atPath: path, templateFilename: templateFilename)
         for file in files {
             try? FileManager.default.removeItem(atPath: file)
         }
     }
     
     static func appendPathExtensionToSplitParts(_ ext: String, atPath path: String, templateFilename: String) {
-        let files = splitPartPaths(atPath: path, templateFilename: templateFilename)
+        let files = splitParts(atPath: path, templateFilename: templateFilename)
         for file in files {
             guard let newPath = (file as NSString).appendingPathExtension(ext) else { continue }
             try? FileManager.default.moveItem(atPath: file, toPath: newPath)
@@ -114,7 +124,6 @@ struct FileField: View {
                         .disabled(true)
                     //.focusable(false)
                     HStack(spacing: 8) {
-                        // File icon
                         Image(iconForFile: url.path)
                             .resizable()
                             .frame(width: 16, height: 16)
@@ -127,13 +136,14 @@ struct FileField: View {
                         // Action button
                         Spacer()
                         Button(action: {isImporterPresented = true}) {
-                            Image(systemName: "doc.fill")
+                            let imageName = FileManager.isDirectory(url) ? "folder.fill" : "doc.fill"
+                            Image(systemName: imageName)
                                 .foregroundColor(.gray)
                                 .font(.system(size: 14))
                         }
                         .fileImporter(
                             isPresented: $isImporterPresented,
-                            allowedContentTypes: [.item],
+                            allowedContentTypes: FileManager.isDirectory(url) ? [.folder] : [.item],
                             allowsMultipleSelection: false
                         ) { result in
                             switch result {
@@ -196,14 +206,17 @@ struct FilesizeField: View {
         if let url = url {
             Text("File size: \(FilesizeFormatter.string(fromFileURL: url))")
         }
-        
     }
 }
 
 #Preview {
     @Previewable @State var fileURL: URL? = URL(fileURLWithPath: "/Volumes/Data/Cyberpunk.2077.v2.3.dmg")
     @Previewable @State var templateFilename: String = "Cyberpunk.2077.v2.3.dmg"
-    FileField(url: $fileURL)
-    FilesizeField(url: $fileURL)
-    TemplateFilenameField(value: $templateFilename)
-}
+    VStack(alignment: .leading, spacing: 12) {
+        FileField(url: $fileURL)
+        FilesizeField(url: $fileURL)
+        TemplateFilenameField(value: $templateFilename)
+    }
+    .padding()
+
+ }

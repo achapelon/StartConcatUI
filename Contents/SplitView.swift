@@ -9,113 +9,150 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SplitView: View {
-    @StateObject private var progress: Progress = Progress()
-    @Binding var fileURL: URL?
-    
-    @State private var destFolder: URL?
-    @State private var templateFilename: String = ""
-    @State private var chunkCount: Int = 2
-    @State private var suffixLength: Int = 1
-    @State private var overwrite: Bool = true
-    @State private var numericSuffix: Bool = true
+    @EnvironmentObject private var model: SplitConcatModel
+
+    @StateObject private var progress: SplitConcatProgress = SplitConcatProgress()
+
     @State private var showTermination: Bool = false
     @State private var showConfirmation: Bool = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            FileField(url: $fileURL)
-            FilesizeField(url: $fileURL)
-            FileField(label: "Folder destination", url: $destFolder)
-                .onAppear {
-                    if let url = fileURL {
-                        destFolder = url.deletingLastPathComponent()
-                        templateFilename = url.lastPathComponent + ".part"
-                    }
-                }
-                .onChange(of: destFolder) {
-                    if let url = fileURL, destFolder == nil {
-                        destFolder = url.deletingLastPathComponent()
-                        return
-                    }
-                    if let url = destFolder, !url.hasDirectoryPath {
-                        destFolder = url.deletingLastPathComponent()
-                    }
-                }
-                .onChange(of: fileURL) {
-                    if let url = fileURL {
-                        destFolder = url.deletingLastPathComponent()
-                        templateFilename = url.lastPathComponent + ".part"
-                    }
-                }
-            ChunckCountField(url:$fileURL, value: $chunkCount)
-            Spacer()
-            if progress.isRunning {
-                ProgressView(value: progress.value)
-                    .progressViewStyle(LinearProgressViewStyle())
-                    .disabled(progress.value == 0.0)
-                Text(progress.message)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .padding(.top, -10)
-            }
-            Button(progress.isRunning ? "Cancel" : "Split") {
-                if progress.isRunning {
-                    progress.terminateProcess()
-                } else {
-                    guard let destFolder = destFolder else { return }
-                    let files = FileManager.splitPartPaths(atPath: destFolder.path, templateFilename: templateFilename)
-                    if !files.isEmpty {
-                        showConfirmation = true
-                        return
-                    }
-                    startSplit()
-                }
-            }
-            .confirmationDialog("Overwrite existing files?", isPresented: $showConfirmation) {
-                Button("Overwrite", role: .destructive) {
-                    guard let destFolder = destFolder else { return }
-                    FileManager.removeSplitParts(atPath: destFolder.path, templateFilename: templateFilename)
-                    startSplit()
-                }
-                .keyboardShortcut(.defaultAction)
-                Button("Cancel", role: .cancel) { }
-            }
-            .alert(progress.isFinished ? "Finished" : "Canceled", isPresented: $showTermination) {
-                Button("OK") {
-                    // Rename files with extension on Finish
-                    // Remove temporary files on Cancel
-                    guard let destFolder = destFolder else { return }
-                    if progress.isFinished {
-                        FileManager.appendPathExtensionToSplitParts("split", atPath: destFolder.path, templateFilename: templateFilename)
-                    } else {
-                        FileManager.removeSplitParts(atPath: destFolder.path, templateFilename: templateFilename)
-                    }
-                }
-            } message: {
-                Text(progress.isFinished ? "The file has been split successfully." : "The split has been canceled.")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(fileURL == nil || templateFilename.isEmpty || destFolder == nil)
-            .padding(.top, 10)
 
+    var body: some View {
+        VStack(spacing: 12) {
+            parameters
+
+            Spacer()
+
+            SplitConcatProgressView(progress: progress)
+            
+            startCancelButton
         }
         .padding()
     }
+
+    private func startCancelAction() {
+        if progress.isRunning { // Cancel button
+            progress.terminateProcess()
+        } else { // Start Button
+            guard let configuration = model.splitConfiguration else { return }
+            let files = FileManager.splitParts(
+                atPath: configuration.destinationFolder.path,
+                templateFilename: configuration.templateFilename
+            )
+            if !files.isEmpty {
+                showConfirmation = true
+                return
+            }
+            startSplit()
+        }
+    }
     
+    private var overwriteConfirmation: some View {
+        HStack {
+            Button("Overwrite", role: .destructive) {
+                        guard let configuration = model.splitConfiguration else { return }
+                        FileManager.removeSplitParts(
+                            atPath: configuration.destinationFolder.path,
+                            templateFilename: configuration.templateFilename
+                        )
+                        startSplit()
+                    }
+                    Button("Cancel", role: .cancel) { }
+                        .keyboardShortcut(.defaultAction)
+        }
+        
+    }
+    
+    private var finishedAlert: some View {
+        Button("OK") {
+            // Rename files with extension on Finish, or remove temporary files on Cancel.
+            guard let configuration = model.splitConfiguration else { return }
+            if progress.isFinished {
+                FileManager.appendPathExtensionToSplitParts(
+                    "split",
+                    atPath: configuration.destinationFolder.path,
+                    templateFilename: configuration.templateFilename
+                )
+            } else {
+                FileManager.removeSplitParts(
+                    atPath: configuration.destinationFolder.path,
+                    templateFilename: configuration.templateFilename
+                )
+            }
+        }
+    }
+    
+    private var startCancelButton: some View {
+        Button(action: startCancelAction) {
+            Text(progress.isRunning ? "Cancel" : "Split")
+                .frame(width: 100)
+        }
+        .confirmationDialog("Overwrite existing files?", isPresented: $showConfirmation) {
+            overwriteConfirmation
+        }
+        .alert(progress.isFinished ? "Finished" : "Canceled", isPresented: $showTermination) {
+            finishedAlert
+        } message: {
+            Text(progress.isFinished ? "The file has been split successfully." : "The split has been canceled.")
+        }
+        .controlSize(.extraLarge)
+        .buttonStyle(.borderedProminent)
+        .disabled(model.splitConfiguration == nil)
+    }
+    
+    private var parameters: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            FileField(url: $model.sourceURL)
+            FilesizeField(url: $model.sourceURL)
+            FileField(label: "Destination folder", url: destinationFolderBinding)
+            ChunckCountField(
+                chunkCount: chunkCountBinding,
+                estimatedChunkSize: model.splitConfiguration?.estimatedChunkSize ?? 0
+            )
+        }
+    }
+    
+    private var destinationFolderBinding: Binding<URL?> {
+        Binding {
+            model.splitConfiguration?.destinationFolder
+        } set: { newValue in
+            guard let newValue else { return }
+            updateSplitConfiguration { configuration in
+                configuration.destinationFolder = newValue.hasDirectoryPath ? newValue : newValue.deletingLastPathComponent()
+            }
+        }
+    }
+
+    private var chunkCountBinding: Binding<Int> {
+        Binding {
+            model.splitConfiguration?.chunkCount ?? 2
+        } set: { newValue in
+            updateSplitConfiguration { configuration in
+                configuration.chunkCount = min(max(newValue, 2), 99)
+            }
+        }
+    }
+
+    private func updateSplitConfiguration(_ update: (inout SplitConfiguration) -> Void) {
+        guard var configuration = model.splitConfiguration else { return }
+        update(&configuration)
+        model.splitConfiguration = configuration
+    }
+
     func cancel() {
         progress.terminateProcess()
         showTermination = true
     }
-    
+
     func startSplit() {
-        guard let url = fileURL else { return }
-        guard let destFolder = destFolder else { return }
-            
-        let destination = destFolder.appendingPathComponent(templateFilename)
-        
-        progress.setProcessSplit(source: url, destination: destination, chunkCount: chunkCount)
+        guard let configuration = model.splitConfiguration else { return }
+
+        progress.setProcessSplit(
+            source: configuration.sourceURL,
+            destination: configuration.destinationURL,
+            chunkCount: configuration.chunkCount
+        )
         progress.runProcess()
-        
+
         guard let process = progress.process else { return }
         DispatchQueue.global(qos: .background).async {
             while process.isRunning {
@@ -132,31 +169,30 @@ struct SplitView: View {
             }
         }
     }
-}
 
-struct ChunckCountField: View {
-    @Binding var url: URL?
-    @Binding var value: Int
-    var body: some View {
-        HStack {
-            if let url = url {
+    struct ChunckCountField: View {
+        @Binding var chunkCount: Int
+        let estimatedChunkSize: UInt64
+
+        var body: some View {
+            HStack {
                 Text("Chunk count:")
-                TextField("", value: $value, format: .number)
+                TextField("", value: $chunkCount, format: .number)
                     .frame(width: 38)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .multilineTextAlignment(.center)
-                Stepper("", value: $value, in: 2...99)
+                Stepper("", value: $chunkCount, in: 2...99)
                     .frame(width: 0)
                     .padding(.trailing, 10)
-                let filesize = FileManager.filesize(for: url)
-                let size: UInt64 = filesize/UInt64(value)
-                Text("Size of each file: \(FilesizeFormatter.string(fromByteCount:size))")
+                Text("Size of each part: \(FilesizeFormatter.string(fromByteCount: estimatedChunkSize))")
             }
         }
     }
 }
 
+
+
 #Preview {
-    @Previewable @State var fileURL: URL? = URL(fileURLWithPath: "/Users/achapelon/Downloads/GlobalProtect_Linux_6-2-9-c4.tar")
-    SplitView(fileURL: $fileURL)
+    SplitView()
+        .environmentObject(SplitConcatModel(sourceURL: URL(fileURLWithPath: "/Users/achapelon/Downloads/GlobalProtect_Linux_6-2-9-c4.tar")))
 }
