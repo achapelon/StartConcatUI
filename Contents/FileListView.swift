@@ -26,26 +26,7 @@ struct FileListView: View {
     private var partsList: some View {
         List {
             ForEach(files, id: \.self) { file in
-                HStack(alignment: .center) {
-                    Image(iconForFile: file.path)
-                        .resizable()
-                        .frame(width: 24, height: 24)
-                    Text(file.lastPathComponent)
-                        .foregroundColor(selection == file
-                                         ? .white
-                                         : .gray)
-                    Spacer()
-                }
-                .padding(.vertical, 2)
-                .padding(.horizontal, 4)
-                .contentShape(Rectangle())
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(selection == file
-                              ? Color.accentColor
-                              : Color.clear)
-                )
-                .onTapGesture { selection = file }
+                fileRow(for: file)
             }
             .onMove { source, destination in
                 files.move(fromOffsets: source, toOffset: destination)
@@ -77,6 +58,33 @@ struct FileListView: View {
             isTargeted: $isDropTargeted,
             perform: handleDrop
         )
+    }
+
+    private func fileRow(for file: URL) -> some View {
+        let isSelected = selection == file
+        let textColor: Color = isSelected ? .white : .gray
+        let fileSize = FilesizeFormatter.string(fromFileURL: file)
+
+        return HStack(alignment: .center) {
+            Image(iconForFile: file.path)
+                .resizable()
+                .frame(width: 24, height: 24)
+            Text(file.lastPathComponent)
+                .foregroundColor(textColor)
+            Text("(\(fileSize))")
+                .foregroundColor(textColor)
+            Spacer()
+        }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .background(rowBackground(isSelected: isSelected))
+        .onTapGesture { selection = file }
+    }
+
+    private func rowBackground(isSelected: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(isSelected ? Color.accentColor : Color.clear)
     }
     
     private var listToolbar: some View {

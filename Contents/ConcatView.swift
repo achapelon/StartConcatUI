@@ -31,10 +31,10 @@ struct ConcatView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
                 if let configuration = model.concatConfiguration {
+                    let fileSize = FilesizeFormatter.string(fromByteCount: configuration.destinationFileSize)
                     FileListView(files: partURLsBinding)
-                    FilesizeCatField(filesize: configuration.destinationFileSize)
                     FileField(label: "Folder destination", url: destinationFolderBinding)
-                    Text("Destination file: \(configuration.destinationFilename)")
+                    Text("Destination file: \(configuration.destinationFilename) (\(fileSize))")
                 }
             }
         }
