@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct FileListView: View {
     @Binding var files: [URL]
     @State private var selection: URL?
     @State private var isImporterPresented: Bool = false
+    @State private var isDropTargeted: Bool = false
     
     var cornerRadius: CGFloat = 12
     
@@ -34,6 +36,7 @@ struct FileListView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .contentShape(Rectangle())
         .background(
             Color(white: 0.97)
                 .clipShape(
@@ -44,6 +47,18 @@ struct FileListView: View {
                         topTrailingRadius: cornerRadius
                     )
                 )
+        )
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(.blue, lineWidth: 2)
+                    .padding(1)
+            }
+        }
+        .onDrop(
+            of: [UTType.fileURL.identifier],
+            isTargeted: $isDropTargeted,
+            perform: handleDrop
         )
     }
     
@@ -64,7 +79,7 @@ struct FileListView: View {
                 ) { result in
                     switch result {
                     case .success(let urls):
-                        self.files.append(contentsOf: urls)
+                        appendFiles(urls)
                     case .failure(let error):
                         print("Error: \(error)")
                     }
@@ -102,6 +117,35 @@ struct FileListView: View {
         }
     }
     
+    private func appendFiles(_ urls: [URL]) {
+        files.append(contentsOf: urls.filter { !$0.hasDirectoryPath })
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        let fileProviders = providers.filter { provider in
+            provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+        }
+
+        guard !fileProviders.isEmpty else { return false }
+
+        for provider in fileProviders {
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+                guard error == nil,
+                      let data = item as? Data,
+                      let droppedURL = URL(dataRepresentation: data, relativeTo: nil),
+                      !droppedURL.hasDirectoryPath else {
+                    return
+                }
+
+                DispatchQueue.main.async {
+                    appendFiles([droppedURL])
+                }
+            }
+        }
+
+        return true
+    }
+
     func remove() {
         if let selected = selection, let index = files.firstIndex(of: selected) {
             files.remove(at: index)

@@ -44,25 +44,34 @@ struct Dropzone: View {
         .contentShape(Rectangle())
         .onDrop(
             of: [UTType.fileURL.identifier],
-            isTargeted: $isTargeted
-        ) { providers in
-            if let provider = providers.first {
-                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
-                    if let data = item as? Data,
-                       let droppedURL = URL(dataRepresentation: data, relativeTo: nil) {
-                        if droppedURL.hasDirectoryPath {
-                            return
-                        }
-                        DispatchQueue.main.async {
-                            self.fileURL = droppedURL
-                        }
+            isTargeted: $isTargeted,
+            perform: handleDrop
+        )
+        .padding()
+    }
+    
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        let fileProviders = providers.filter { provider in
+            provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+        }
+
+        guard !fileProviders.isEmpty else { return false }
+
+        if let provider = providers.first {
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+                if let data = item as? Data,
+                   let droppedURL = URL(dataRepresentation: data, relativeTo: nil) {
+                    if droppedURL.hasDirectoryPath {
+                        return
+                    }
+                    DispatchQueue.main.async {
+                        self.fileURL = droppedURL
                     }
                 }
-                return true
             }
-            return false
+            return true
         }
-        .padding()
+        return false
     }
 }
 

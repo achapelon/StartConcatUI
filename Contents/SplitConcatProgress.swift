@@ -8,7 +8,8 @@
 import SwiftUI
 import Foundation
 
-class SplitConcatProgress: ObservableObject {
+@Observable
+class SplitConcatProgress {
     struct ElapsedTime {
         var startTime: Date = Date()
 
@@ -27,15 +28,22 @@ class SplitConcatProgress: ObservableObject {
         }
     }
 
-    @Published var totalByteCount: UInt64 = 0
-    @Published var currentByteCount: UInt64 = 0
+    var totalByteCount: UInt64 = 0
+    var currentByteCount: UInt64 = 0
     
     var elapsed: ElapsedTime?
     var process: Process?
     var outputURL: URL?
     
     var isRunning: Bool { process != nil }
-    var isFinished: Bool { get { totalByteCount > 0 && currentByteCount >= totalByteCount } set { newValue ? DispatchQueue.main.async { [self] in (currentByteCount = totalByteCount) } : () } }
+    var isFinished: Bool {
+        get {
+            totalByteCount > 0 && currentByteCount >= totalByteCount
+        }
+        set {
+            newValue ? DispatchQueue.main.async { [self] in (currentByteCount = totalByteCount) } : ()
+        }
+    }
     var value: Double {
         guard totalByteCount > 0 else { return 0 }
         return min(Double(currentByteCount) / Double(totalByteCount), 1)
@@ -195,7 +203,7 @@ class SplitConcatProgress: ObservableObject {
 }
 
 struct SplitConcatProgressView: View {
-    @StateObject var progress: SplitConcatProgress
+    @State var progress: SplitConcatProgress
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

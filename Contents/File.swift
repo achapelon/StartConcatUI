@@ -105,86 +105,112 @@ extension FileManager {
 struct FileField: View {
     @State private var isTargeted = false
     @State var label: String = "File"
-    @State private var text: String = ""
     @State private var isImporterPresented: Bool = false
     @Binding var url: URL?
     
     var body: some View {
         HStack {
-            if let url = url {
                 Text("\(label):")
                     .frame(height: 22)
                 ZStack {
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.accentColor, lineWidth: 2)
-                        .opacity(isTargeted ? 1 : 0)
-                        .frame(height: 22)
-                    TextField("", text: $text)
+                    TextField("", text: .constant(""))
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .disabled(true)
-                    //.focusable(false)
+
                     HStack(spacing: 8) {
-                        Image(iconForFile: url.path)
-                            .resizable()
-                            .frame(width: 16, height: 16)
-                        // File name
-                        Text(url.lastPathComponent)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundColor(.primary)
+                        fileView
                         
-                        // Action button
                         Spacer()
-                        Button(action: {isImporterPresented = true}) {
-                            let imageName = FileManager.isDirectory(url) ? "folder.fill" : "doc.fill"
-                            Image(systemName: imageName)
-                                .foregroundColor(.gray)
-                                .font(.system(size: 14))
-                        }
-                        .fileImporter(
-                            isPresented: $isImporterPresented,
-                            allowedContentTypes: FileManager.isDirectory(url) ? [.folder] : [.item],
-                            allowsMultipleSelection: false
-                        ) { result in
-                            switch result {
-                            case .success(let urls):
-                                self.url = urls.first
-                            case .failure(let error):
-                                print("Erreur : \(error.localizedDescription)")
-                            }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        Button(action: {self.url = nil}) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
-                                .font(.system(size: 14))
-                        }
-                        .buttonStyle(PlainButtonStyle())
+                        
+                        fileActionButtons
                     } // HStack
-                    .padding(.vertical, 2)
+                    //.padding(.vertical, 2)
                     .padding(.horizontal, 8)
-                    .frame(height: 20)
+                    //.frame(height: 20)
                 } // ZStack
+                .overlay {
+                    if isTargeted {
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.accentColor, lineWidth: 2)
+                            .padding(1)
+                    }
+                }
                 .onDrop(
                     of: [UTType.fileURL.identifier],
-                    isTargeted: $isTargeted
-                ) { providers in
-                    if let provider = providers.first {
-                        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
-                            if let data = item as? Data,
-                               let droppedURL = URL(dataRepresentation: data, relativeTo: nil) {
-                                DispatchQueue.main.async {
-                                    self.url = droppedURL
-                                }
-                            }
-                        }
-                        return true
-                    }
-                    return false
-                }
-            } // if url
+                    isTargeted: $isTargeted,
+                    perform: handleDrop
+                )
         } // HStack
     } // View
+    
+    private var fileActionButtons: some View {
+        HStack(spacing: 8) {
+            if let url = url {
+                Button(action: {isImporterPresented = true}) {
+                    let imageName = FileManager.isDirectory(url) ? "folder.fill" : "doc.fill"
+                    Image(systemName: imageName)
+                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                }
+                .fileImporter(
+                    isPresented: $isImporterPresented,
+                    allowedContentTypes: FileManager.isDirectory(url) ? [.folder] : [.item],
+                    allowsMultipleSelection: false
+                ) { result in
+                    switch result {
+                    case .success(let urls):
+                        self.url = urls.first
+                    case .failure(let error):
+                        print("Erreur : \(error.localizedDescription)")
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                Button(action: {self.url = nil}) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+    
+    private var fileView: some View {
+        HStack(spacing: 8) {
+            if let url = url {
+                Image(iconForFile: url.path)
+                    .resizable()
+                    .frame(width: 16, height: 16)
+                // File name
+                Text(url.lastPathComponent)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .foregroundColor(.primary)
+            }
+        }
+    }
+    
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        let fileProviders = providers.filter { provider in
+            provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+        }
+
+        guard !fileProviders.isEmpty else { return false }
+
+        if let provider = providers.first {
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+                if let data = item as? Data,
+                   let droppedURL = URL(dataRepresentation: data, relativeTo: nil) {
+                    DispatchQueue.main.async {
+                        self.url = droppedURL
+                    }
+                }
+            }
+            return true
+        }
+        return false
+    }
+    
 } // Struct
 
 struct TemplateFilenameField: View {
