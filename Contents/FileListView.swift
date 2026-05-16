@@ -24,15 +24,27 @@ struct FileListView: View {
     }
 
     private var partsList: some View {
-        List(files, id: \.self, selection: $selection) { file in
-            HStack {
+        List(files, id: \.self) { file in
+            HStack(alignment: .center) {
                 Image(iconForFile: file.path)
                     .resizable()
                     .frame(width: 24, height: 24)
                 Text(file.lastPathComponent)
-                    .foregroundColor(.gray)
+                    .foregroundColor(selection == file
+                                     ? .white
+                                     : .gray)
+                Spacer()
             }
             .padding(.vertical, 2)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
+            .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(selection == file
+                            ? Color.accentColor
+                            : Color.clear)
+                )
+            .onTapGesture { selection = file }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)

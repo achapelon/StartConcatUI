@@ -9,7 +9,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SplitView: View {
-    @EnvironmentObject private var model: SplitConcatModel
     @State private var progress: SplitConcatProgress = SplitConcatProgress()
     
     var body: some View {
