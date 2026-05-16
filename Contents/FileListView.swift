@@ -24,27 +24,32 @@ struct FileListView: View {
     }
 
     private var partsList: some View {
-        List(files, id: \.self) { file in
-            HStack(alignment: .center) {
-                Image(iconForFile: file.path)
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                Text(file.lastPathComponent)
-                    .foregroundColor(selection == file
-                                     ? .white
-                                     : .gray)
-                Spacer()
-            }
-            .padding(.vertical, 2)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
-            .background(
+        List {
+            ForEach(files, id: \.self) { file in
+                HStack(alignment: .center) {
+                    Image(iconForFile: file.path)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                    Text(file.lastPathComponent)
+                        .foregroundColor(selection == file
+                                         ? .white
+                                         : .gray)
+                    Spacer()
+                }
+                .padding(.vertical, 2)
+                .padding(.horizontal, 4)
+                .contentShape(Rectangle())
+                .background(
                     RoundedRectangle(cornerRadius: 8)
                         .fill(selection == file
-                            ? Color.accentColor
-                            : Color.clear)
+                              ? Color.accentColor
+                              : Color.clear)
                 )
-            .onTapGesture { selection = file }
+                .onTapGesture { selection = file }
+            }
+            .onMove { source, destination in
+                files.move(fromOffsets: source, toOffset: destination)
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
