@@ -82,14 +82,15 @@ struct FileListView: View {
             Text(file.lastPathComponent)
                 .foregroundStyle(textColor)
             
+            Spacer()
+
             Divider()
                 .frame(height: 14)
                 .foregroundStyle(textColor)
             
             Text("\(fileSize)")
                 .foregroundStyle(textColor)
-            
-            Spacer()
+
         }
         .padding(.vertical, 2)
         .padding(.horizontal, 4)

@@ -15,11 +15,11 @@ struct MainView: View {
         Group {
             switch model.operation {
             case .concat:
-                ConcatView()
+                SplitConcatView(operation: .concat)
             case .split:
-                SplitView()
+                SplitConcatView(operation: .split)
             case nil:
-                Dropzone(text: "Drag and drop a file here", fileURL: $model.sourceURL)
+                Dropzone("Drag and drop a file here")
             }
         }
         .onChange(of: model.sourceURL) {
