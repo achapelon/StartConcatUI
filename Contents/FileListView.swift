@@ -27,6 +27,15 @@ struct FileListView: View {
         List {
             ForEach(files, id: \.self) { file in
                 fileRow(for: file)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            remove(file)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                                .foregroundStyle(Color.white)
+                                .backgroundStyle(Color.red)
+                        }
+                    }
             }
             .onMove { source, destination in
                 files.move(fromOffsets: source, toOffset: destination)
@@ -69,10 +78,17 @@ struct FileListView: View {
             Image(iconForFile: file.path)
                 .resizable()
                 .frame(width: 24, height: 24)
+            
             Text(file.lastPathComponent)
-                .foregroundColor(textColor)
-            Text("(\(fileSize))")
-                .foregroundColor(textColor)
+                .foregroundStyle(textColor)
+            
+            Divider()
+                .frame(height: 14)
+                .foregroundStyle(textColor)
+            
+            Text("\(fileSize)")
+                .foregroundStyle(textColor)
+            
             Spacer()
         }
         .padding(.vertical, 2)
@@ -171,9 +187,17 @@ struct FileListView: View {
         return true
     }
 
-    func remove() {
-        if let selected = selection, let index = files.firstIndex(of: selected) {
-            files.remove(at: index)
+    private func remove() {
+        if let selected = selection { remove(selected)
+        }
+    }
+    
+    private func remove(_ file: URL) {
+        guard let index = files.firstIndex(of: file) else { return }
+
+        files.remove(at: index)
+
+        if selection == file {
             selection = nil
         }
     }

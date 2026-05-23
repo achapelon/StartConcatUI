@@ -104,9 +104,14 @@ extension FileManager {
 
 struct FileField: View {
     @State private var isTargeted = false
-    @State var label: String = "File"
+    @State var label: String
     @State private var isImporterPresented: Bool = false
     @Binding var url: URL?
+    
+    init(_ url: Binding<URL?>, label: String = "File") {
+        self._url = url
+        self.label = label
+    }
     
     var body: some View {
         HStack {
@@ -228,6 +233,10 @@ struct TemplateFilenameField: View {
 
 struct FilesizeField: View {
     @Binding var url: URL?
+    
+    init(_ url: Binding<URL?>) {
+        self._url = url
+    }
     var body: some View {
         if let url = url {
             Text("File size: \(FilesizeFormatter.string(fromFileURL: url))")
@@ -239,8 +248,8 @@ struct FilesizeField: View {
     @Previewable @State var fileURL: URL? = URL(fileURLWithPath: "/Volumes/Data/Cyberpunk.2077.v2.3.dmg")
     @Previewable @State var templateFilename: String = "Cyberpunk.2077.v2.3.dmg"
     VStack(alignment: .leading, spacing: 12) {
-        FileField(url: $fileURL)
-        FilesizeField(url: $fileURL)
+        FileField($fileURL)
+        FilesizeField($fileURL)
         TemplateFilenameField(value: $templateFilename)
     }
     .padding()

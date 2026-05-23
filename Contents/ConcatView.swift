@@ -9,7 +9,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ConcatView: View {
-    @State private var progress: SplitConcatProgress = SplitConcatProgress()
+    @State private var progress: SplitConcatProgress = SplitConcatProgress(operation: .concat)
 
     var body: some View {
         VStack {
@@ -18,9 +18,9 @@ struct ConcatView: View {
 
             Spacer()
 
-            SplitConcatProgressView(progress: progress)
+            SplitConcatProgressView(_progress)
 
-            ActionButtonView(progress: progress)
+            OperationActionButtonView(_progress)
         }
         .padding()
     }
@@ -32,8 +32,13 @@ struct ConcatView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let configuration = model.concatConfiguration {
                     let fileSize = FilesizeFormatter.string(fromByteCount: configuration.destinationFileSize)
+                    
                     FileListView(files: partURLsBinding)
-                    FileField(label: "Folder destination", url: destinationFolderBinding)
+                    
+                    FileField(
+                        destinationFolderBinding,
+                        label: "Folder destination")
+                    
                     Text("Destination file: \(configuration.destinationFilename) (\(fileSize))")
                 }
             }
@@ -67,95 +72,6 @@ struct ConcatView: View {
             guard var configuration = model.concatConfiguration else { return }
             update(&configuration)
             model.concatConfiguration = configuration
-        }
-    }
-
-    private struct ActionButtonView: View {
-        @State var progress: SplitConcatProgress
-        @EnvironmentObject private var model: SplitConcatModel
-        @State private var showTermination: Bool = false
-        @State private var showConfirmation: Bool = false
-
-        var body: some View {
-            Button(action: startCancelAction) {
-                Text(progress.isRunning ? "Cancel" : "Concatenate")
-                    .frame(width: 100)
-            }
-            .confirmationDialog("Overwrite existing file?", isPresented: $showConfirmation) {
-                Button("Overwrite", role: .destructive, action: confirmOverwrite)
-                Button("Cancel", role: .cancel) { }
-                    .keyboardShortcut(.defaultAction)
-            }
-            .alert(progress.isFinished ? "Finished" : "Canceled", isPresented: $showTermination) {
-                Button("OK", action: handleTerminationAcknowledgement)
-            } message: {
-                Text(progress.isFinished ? "The file has been concatenated successfully." : "The concatenation has been canceled.")
-            }
-            .controlSize(.extraLarge)
-            .buttonStyle(.borderedProminent)
-            .disabled(model.concatConfiguration == nil)
-        }
-
-        private func startCancelAction() {
-            if progress.isRunning {
-                cancelConcat()
-            } else {
-                prepareConcat()
-            }
-        }
-
-        private func prepareConcat() {
-            guard let configuration = model.concatConfiguration else { return }
-
-            if FileManager.default.fileExists(atPath: configuration.destinationURL.path) {
-                showConfirmation = true
-                return
-            }
-
-            startConcat()
-        }
-
-        private func cancelConcat() {
-            progress.terminateProcess()
-        }
-
-        private func confirmOverwrite() {
-            removeDestinationFile()
-            startConcat()
-        }
-
-        private func handleTerminationAcknowledgement() {
-            if !progress.isFinished {
-                removeDestinationFile()
-            }
-        }
-
-        private func removeDestinationFile() {
-            guard let configuration = model.concatConfiguration else { return }
-            try? FileManager.default.removeItem(at: configuration.destinationURL)
-        }
-
-        private func startConcat() {
-            guard let configuration = model.concatConfiguration else { return }
-
-            progress.setProcessConcat(sources: configuration.partURLs, destination: configuration.destinationURL)
-            progress.runProcess()
-
-            guard let process = progress.process else { return }
-            DispatchQueue.global(qos: .background).async {
-                while process.isRunning {
-                    progress.update()
-                    Thread.sleep(forTimeInterval: 0.2) // vérification toutes les 0.2 secondes
-                }
-                progress.update()
-                // Fin du traitement
-                DispatchQueue.main.async {
-                    progress.terminateProcess()
-                    let soundName: NSSound.Name = progress.isFinished ? "Glass" : "Sosumi"
-                    NSSound(named: soundName)?.play()
-                    showTermination = true
-                }
-            }
         }
     }
 }

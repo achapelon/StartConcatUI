@@ -10,6 +10,12 @@ import Foundation
 
 @Observable
 class SplitConcatProgress {
+    var operation: SplitConcatOperation?
+
+    init(operation: SplitConcatOperation? = nil) {
+        self.operation = operation
+    }
+
     struct ElapsedTime {
         var startTime: Date = Date()
 
@@ -97,6 +103,7 @@ class SplitConcatProgress {
     }
     
     func setProcessSplit(source: URL, destination: URL, chunkCount: Int) {
+        operation = .split
         set(toByteCount: FileManager.filesize(for: source))
         
         let process = Process()
@@ -120,6 +127,7 @@ class SplitConcatProgress {
     }
     
     func setProcessConcat(sources: [URL], destination: URL) {
+        operation = .concat
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/cat")
 
@@ -205,6 +213,10 @@ class SplitConcatProgress {
 struct SplitConcatProgressView: View {
     @State var progress: SplitConcatProgress
     
+    init(_ progress: State<SplitConcatProgress>) {
+        self._progress = progress
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if progress.isRunning {
@@ -220,6 +232,6 @@ struct SplitConcatProgressView: View {
 }
 
 #Preview {
-    SplitConcatProgressView(progress: SplitConcatProgress())
+    SplitConcatProgressView(State(initialValue: SplitConcatProgress()))
         .padding(10)
 }
